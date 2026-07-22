@@ -175,3 +175,29 @@ img, svg, canvas, video {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
+
+/* Base navigation styling */
+.user-nav-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile Screens (< 640px) */
+@media (max-width: 640px) {
+  /* Hide user badge (email + indicator dot) on mobile */
+  .user-badge {
+    display: none !important;
+  }
+
+  /* Optional: Hide text inside theme and feedback buttons to save extra space */
+  .btn-text {
+    display: none;
+  }
+
+  /* Adjust padding so icon buttons look clean and square */
+  .btn-outline {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}

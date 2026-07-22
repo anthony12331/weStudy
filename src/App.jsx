@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabaseClient';
 import { localDb } from './lib/db';
 import { generateFlashcardsWithAI, generateMoreCardsWithAI } from './lib/gemini';
@@ -24,6 +24,9 @@ export default function App() {
   const [savedDecks, setSavedDecks] = useState([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  // Ref for auto-scrolling to the generated flashcard deck / summary
+  const deckRef = useRef(null);
+
   // Active Quiz & Identification state to feed into AI Chat
   const [activeQuiz, setActiveQuiz] = useState([]);
   const [activeIdentification, setActiveIdentification] = useState([]);
@@ -42,6 +45,13 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('westudy-theme', theme);
   }, [theme]);
+
+  // Smooth scroll to generated deck when currentDeck is set
+  useEffect(() => {
+    if (currentDeck && deckRef.current) {
+      deckRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentDeck]);
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
@@ -191,6 +201,7 @@ export default function App() {
             </div>
 
             <div className="user-nav-wrapper">
+              {/* User Badge: Will be hidden on mobile */}
               <div className="user-badge">
                 <div className="status-indicator" />
                 <span className="user-email">{user.email}</span>
@@ -201,20 +212,22 @@ export default function App() {
                 onClick={toggleTheme} 
                 className="btn-outline" 
                 title="Toggle Light/Dark Theme"
-                style={{ padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}
               >
-                {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+                <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+                <span className="btn-text">{theme === 'dark' ? ' Light' : ' Dark'}</span>
               </button>
 
               {/* 💬 Feedback Button */}
               <button 
                 onClick={() => setIsFeedbackOpen(true)} 
                 className="btn-outline"
-                style={{ padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}
+                title="Feedback"
               >
-                💬 Feedback
+                <span>💬</span>
+                <span className="btn-text"> Feedback</span>
               </button>
               
+              {/* Log Out Button */}
               <button onClick={handleLogout} className="btn-outline">
                 Log Out
               </button>
@@ -285,9 +298,9 @@ export default function App() {
               />
             </div>
 
-            {/* Current Generated Deck Preview */}
+            {/* Current Generated Deck Preview with Auto-Scroll Ref */}
             {currentDeck && (
-              <div className="card-container full-width">
+              <div ref={deckRef} className="card-container full-width">
                 <FlashcardViewer summary={currentDeck.summary} cards={currentDeck.cards} />
                 <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
                   <button onClick={handleGenerateMore} disabled={isGeneratingMore} className="btn-secondary">
@@ -351,7 +364,7 @@ export default function App() {
           onClose={() => setIsFeedbackOpen(false)}
         />
 
-      {/* Floating Chat Button */}
+        {/* Floating Chat Button */}
         <button onClick={() => setIsChatOpen(!isChatOpen)} className="floating-chat-btn">
           <div style={{
             width: '28px',
@@ -372,6 +385,7 @@ export default function App() {
           </div>
           Ask Partner
         </button>
+
         {/* AI Assistant Chat Panel */}
         <ClassmateChat
           isOpen={isChatOpen}
@@ -406,7 +420,7 @@ export default function App() {
         <div className="brand-logo large">w</div>
         <h1 className="login-title">Welcome to weStudy</h1>
         <p className="login-subtitle">
-          Your study assistant. Convert documents into quizzes, flashcards,  Identification and summary decks in seconds.
+          Your study assistant. Convert documents into quizzes, flashcards, Identification and summary decks in seconds.
         </p>
         <button onClick={handleGoogleSignIn} className="btn-primary">
           Sign in with Google
