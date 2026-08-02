@@ -22,10 +22,14 @@ class RateLimiter {
 const chatLimiter = new RateLimiter();
 
 export default function ClassmateChat({ isOpen, onClose, studyData }) {
+  // 💡 Suggested question attached directly to the initial greeting
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
-      text: "Hey there! I'm Pony 🎓, and I am so excited to study with you today! Let's tackle this together and crush your goals! What are we jumping into first?"
+      text: "Hey there! I'm Pony 🎓, and I am so excited to study with you today! Let's tackle this together and crush your goals! What are we jumping into first?",
+      suggestions: [
+        'Who is your creator?'
+      ]
     }
   ]);
   const [input, setInput] = useState('');
@@ -38,9 +42,9 @@ export default function ClassmateChat({ isOpen, onClose, studyData }) {
 
   if (!isOpen) return null;
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  // 🔄 Handles sending query whether typed or clicked from suggestions
+  const sendQuery = async (queryText) => {
+    if (!queryText.trim() || loading) return;
 
     // 🛡️ Check Rate Limit
     if (!chatLimiter.canMakeCall()) {
@@ -54,12 +58,11 @@ export default function ClassmateChat({ isOpen, onClose, studyData }) {
       return;
     }
 
-    const userMsg = input.trim();
+    const userMsg = queryText.trim();
     setInput('');
     setMessages((prev) => [...prev, { sender: 'user', text: userMsg }]);
     setLoading(true);
 
-    // Build complete context of everything the user has generated so far
     const fullBrainContext = `
 STUDY MATERIAL TEXT:
 ${studyData?.fullText ? studyData.fullText.slice(0, 8000) : 'No document uploaded.'}
@@ -78,7 +81,7 @@ ${studyData?.identification ? JSON.stringify(studyData.identification) : 'None g
 You are "Pony", an intelligent, direct, and encouraging AI study partner for the "weStudy" app.
 
 CRITICAL IDENTITY RULE:
-If asked about your creator or developer, proud and clear state that you were created and built by JAY ARE DIGAL POGI for the "weStudy" platform.
+If asked about your creator or developer, proudly and clearly state that you were created and built by JAY ARE DIGAL POGI for the "weStudy" platform.
 
 CRITICAL ANSWERING RULES:
 1. FULL CONTEXT ACCESS: You have access to the student's entire study session (document text, flashcards, practice quizzes, and identification blanks). Use all of it to answer questions accurately!
@@ -112,6 +115,11 @@ ${userMsg}
     }
   };
 
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    sendQuery(input);
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -139,7 +147,6 @@ ${userMsg}
         alignItems: 'center'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Header Mascot Badge */}
           <div style={{
             width: '38px',
             height: '38px',
@@ -186,50 +193,85 @@ ${userMsg}
             key={index}
             style={{
               display: 'flex',
-              gap: '8px',
-              flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row',
-              alignItems: 'flex-start'
+              flexDirection: 'column',
+              alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+              gap: '6px'
             }}
           >
-            {/* Mascot Avatar next to AI Chat Messages */}
-            {msg.sender === 'ai' && (
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                overflow: 'hidden',
-                backgroundColor: '#ffffff',
-                border: '1px solid #CBD5E1',
-                flexShrink: 0
-              }}>
-                <img 
-                  src={mascotImg} 
-                  alt="Pony" 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                />
-              </div>
-            )}
-
             <div
               style={{
-                backgroundColor: msg.sender === 'user' ? '#4F46E5' : 'white',
-                color: msg.sender === 'user' ? 'white' : '#1E293B',
-                padding: '10px 14px',
-                borderRadius: '12px',
-                maxWidth: '80%',
-                fontSize: '13px',
-                lineHeight: '1.5',
-                whiteSpace: 'pre-wrap',
-                boxShadow: msg.sender === 'ai' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
-                border: msg.sender === 'ai' ? '1px solid #E2E8F0' : 'none'
+                display: 'flex',
+                gap: '8px',
+                flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row',
+                alignItems: 'flex-start'
               }}
             >
-              {msg.text}
+              {msg.sender === 'ai' && (
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #CBD5E1',
+                  flexShrink: 0
+                }}>
+                  <img 
+                    src={mascotImg} 
+                    alt="Pony" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
+                </div>
+              )}
+
+              <div
+                style={{
+                  backgroundColor: msg.sender === 'user' ? '#4F46E5' : 'white',
+                  color: msg.sender === 'user' ? 'white' : '#1E293B',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  maxWidth: '80%',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  whiteSpace: 'pre-wrap',
+                  boxShadow: msg.sender === 'ai' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
+                  border: msg.sender === 'ai' ? '1px solid #E2E8F0' : 'none'
+                }}
+              >
+                {msg.text}
+              </div>
             </div>
+
+            {/* 💬 Clickable suggestion chip under Pony's message */}
+            {msg.suggestions && msg.suggestions.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', marginLeft: '36px', marginTop: '2px', flexWrap: 'wrap' }}>
+                {msg.suggestions.map((suggestion, sIdx) => (
+                  <button
+                    key={sIdx}
+                    onClick={() => sendQuery(suggestion)}
+                    disabled={loading}
+                    style={{
+                      backgroundColor: '#EEF2FF',
+                      color: '#4F46E5',
+                      border: '1px solid #C7D2FE',
+                      borderRadius: '16px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    💬 {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
 
-        {/* Loading Indicator with Mascot */}
+        {/* Loading Indicator */}
         {loading && (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <div style={{
@@ -262,7 +304,7 @@ ${userMsg}
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input Form */}
       <form onSubmit={handleSendMessage} style={{ display: 'flex', padding: '10px', backgroundColor: 'white', borderTop: '1px solid #E2E8F0' }}>
         <input
           type="text"

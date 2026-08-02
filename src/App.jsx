@@ -8,7 +8,7 @@ import NotificationModal from './components/NotificationModal';
 import ClassmateChat from './components/ClassmateChat';
 import StudyTools from './components/StudyTools';
 import Feedback from './components/Feedback';
-import mascotImg from './assets/mascot.jpeg'; // Adjust relative path if needed
+import mascotImg from './assets/mascot.jpeg';
 import './App.css';
 
 export default function App() {
@@ -24,17 +24,13 @@ export default function App() {
   const [savedDecks, setSavedDecks] = useState([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Ref for auto-scrolling to the generated flashcard deck / summary
   const deckRef = useRef(null);
 
-  // Active Quiz & Identification state to feed into AI Chat
   const [activeQuiz, setActiveQuiz] = useState([]);
   const [activeIdentification, setActiveIdentification] = useState([]);
 
-  // Feedback Modal state
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
-  // 🌙 / ☀️ Light & Dark Mode State Management
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('westudy-theme');
     if (savedTheme) return savedTheme;
@@ -46,7 +42,6 @@ export default function App() {
     localStorage.setItem('westudy-theme', theme);
   }, [theme]);
 
-  // Smooth scroll to generated deck when currentDeck is set
   useEffect(() => {
     if (currentDeck && deckRef.current) {
       deckRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -57,7 +52,6 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Modal State
   const [modal, setModal] = useState({
     isOpen: false,
     title: '',
@@ -78,13 +72,50 @@ export default function App() {
     setModal(prev => ({ ...prev, isOpen: false }));
   };
 
+  // ==========================================
+  // 🟢 PUTER.COM AUTO-LOGIN SYNC LOGIC
+  // ==========================================
+  const syncPuterAuth = async (sessionUser) => {
+    if (typeof window.puter === 'undefined') return;
+
+    try {
+      if (sessionUser) {
+        // Check if Puter is already authenticated
+        if (!window.puter.auth.isSignedIn()) {
+          // Trigger Puter sign-in in the background
+          await window.puter.auth.signIn();
+        }
+      } else {
+        // Sign out of Puter if Supabase session ends
+        if (window.puter.auth.isSignedIn()) {
+          await window.puter.auth.signOut();
+        }
+      }
+    } catch (error) {
+      console.warn('Puter auto-login sync failed or was dismissed:', error);
+    }
+  };
+
   useEffect(() => {
+    // 1. Initial Session Check
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        syncPuterAuth(currentUser);
+      }
     });
 
+    // 2. Auth State Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (_event === 'SIGNED_IN' && currentUser) {
+        syncPuterAuth(currentUser);
+      } else if (_event === 'SIGNED_OUT') {
+        syncPuterAuth(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -99,14 +130,36 @@ export default function App() {
     setSavedDecks(decks);
   };
 
-  const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    });
-  };
+  // ✅ UPDATED FUNCTION WITH PUTER INTEGRATED INTO CLICK:
+const handleGoogleSignIn = async () => {
+  // 1. Silently initialize Puter account authorization while processing the click
+  if (typeof window !== 'undefined' && window.puter) {
+    try {
+      if (!window.puter.auth.isSignedIn()) {
+        await window.puter.auth.signIn({ attempt_temp_user_creation: true });
+      }
+    } catch (err) {
+      console.warn('Puter authorization closed or skipped:', err);
+    }
+  }
+
+  // 2. Proceed with Supabase sign in
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+};
 
   const handleLogout = async () => {
+    // Synchronized Logout: Sign out of both Supabase & Puter
+    if (window.puter && window.puter.auth.isSignedIn()) {
+      try {
+        await window.puter.auth.signOut();
+      } catch (e) {
+        console.warn('Puter logout warning:', e);
+      }
+    }
+
     await supabase.auth.signOut();
     setExtractedContent('');
     setCurrentDeck(null);
@@ -201,13 +254,11 @@ export default function App() {
             </div>
 
             <div className="user-nav-wrapper">
-              {/* User Badge: Will be hidden on mobile */}
               <div className="user-badge">
                 <div className="status-indicator" />
                 <span className="user-email">{user.email}</span>
               </div>
               
-              {/* Theme Toggle Button */}
               <button 
                 onClick={toggleTheme} 
                 className="btn-outline" 
@@ -217,7 +268,6 @@ export default function App() {
                 <span className="btn-text">{theme === 'dark' ? ' Light' : ' Dark'}</span>
               </button>
 
-              {/* 💬 Feedback Button */}
               <button 
                 onClick={() => setIsFeedbackOpen(true)} 
                 className="btn-outline"
@@ -227,7 +277,6 @@ export default function App() {
                 <span className="btn-text"> Feedback</span>
               </button>
               
-              {/* Log Out Button */}
               <button onClick={handleLogout} className="btn-outline">
                 Log Out
               </button>
@@ -245,7 +294,6 @@ export default function App() {
           </div>
 
           <div className="content-grid">
-            {/* Input Card Container */}
             <div className="card-container">
               <div className="tab-switcher">
                 <button
@@ -289,7 +337,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Interactive Quiz, Flashcard & Identification Practice Tools */}
             <div className="card-container">
               <StudyTools 
                 documentContext={currentDeck?.fullText || extractedContent || pastedText} 
@@ -298,7 +345,6 @@ export default function App() {
               />
             </div>
 
-            {/* Current Generated Deck Preview with Auto-Scroll Ref */}
             {currentDeck && (
               <div ref={deckRef} className="card-container full-width">
                 <FlashcardViewer summary={currentDeck.summary} cards={currentDeck.cards} />
@@ -310,7 +356,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Saved Decks Grid */}
             {savedDecks.length > 0 && (
               <div className="card-container full-width">
                 <div className="decks-header">
@@ -347,7 +392,6 @@ export default function App() {
           </div>
         </main>
 
-        {/* Notification Modal */}
         <NotificationModal
           isOpen={modal.isOpen}
           title={modal.title}
@@ -357,14 +401,12 @@ export default function App() {
           onClose={closeModal}
         />
 
-        {/* Feedback Modal */}
         <Feedback
           userEmail={user?.email}
           isOpen={isFeedbackOpen}
           onClose={() => setIsFeedbackOpen(false)}
         />
 
-        {/* Floating Chat Button */}
         <button onClick={() => setIsChatOpen(!isChatOpen)} className="floating-chat-btn">
           <div style={{
             width: '28px',
@@ -386,7 +428,6 @@ export default function App() {
           Ask Partner
         </button>
 
-        {/* AI Assistant Chat Panel */}
         <ClassmateChat
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
@@ -404,7 +445,6 @@ export default function App() {
   // Login View
   return (
     <div className="login-container">
-      {/* Login Page Theme Switcher Positioned Top-Right */}
       <div style={{ position: 'absolute', top: '20px', right: '20px' }}>
         <button 
           onClick={toggleTheme} 

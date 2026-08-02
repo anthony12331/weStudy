@@ -5,6 +5,20 @@ if (typeof window !== "undefined") {
   puter.quiet = true;
 }
 
+/**
+ * Ensures the browser has an active Puter session.
+ * Uses attempt_temp_user_creation to log in silently without triggering a modal popup.
+ */
+async function ensurePuterAuth() {
+  if (typeof window !== "undefined" && !puter.auth.isSignedIn()) {
+    try {
+      await puter.auth.signIn({ attempt_temp_user_creation: true });
+    } catch (err) {
+      console.warn("Silent Puter authentication failed:", err);
+    }
+  }
+}
+
 // Helper prompt guidelines to filter out administrative syllabus junk
 const ACADEMIC_FILTER_INSTRUCTIONS = `
 CRITICAL QUALITY FILTER RULES:
@@ -17,6 +31,9 @@ CRITICAL QUALITY FILTER RULES:
 `;
 
 export async function generateFlashcardsWithAI(textContent) {
+  // Ensure silent session before sending request
+  await ensurePuterAuth();
+
   const prompt = `
   You are an expert academic study assistant. Analyze the following study text and generate:
   1. A concise overview summary (2-3 paragraphs) focusing strictly on subject matter concepts.
@@ -62,6 +79,9 @@ export async function generateMoreCardsWithAI(
   textContent,
   existingQuestions = [],
 ) {
+  // Ensure silent session before sending request
+  await ensurePuterAuth();
+
   const prompt = `
   You are an expert academic study assistant. Based on the study text below, generate 5 MORE NEW academic flashcards.
 
@@ -104,6 +124,9 @@ export async function generateMoreCardsWithAI(
 }
 
 export async function generateFillInBlanksWithAI(textContent) {
+  // Ensure silent session before sending request
+  await ensurePuterAuth();
+
   const prompt = `
   You are an expert academic study assistant. Analyze the study text below and generate 5 Fill-in-the-Blank / Identification questions.
   Focus on core academic concepts, definitions, technical terms, processes, and formulas.
